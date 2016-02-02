@@ -6,6 +6,23 @@
 效果图如下:  
 ![Alt text](https://raw.githubusercontent.com/qgx446738721/DragBackActivity/master/art/GIF.gif)  
 
+
+**使用方法:**  
+继承自`DragBackActivity`就可以有侧滑返回效果。  
+如果想要禁用，重写`isDisableDrag()`函数返回`true`。
+定制返回动画的色彩：
+
+```java
+//图标色，变化前
+mDragLayer.setPositiveColor(...);
+//图标色，变化后
+mDragLayer.setNegativeColor(...);
+//圆圈色
+mDragLayer.setCircleColor(...);
+```
+
+**粗略解析：**  
+
 因为需要实现的目的是继承自这个`DragBackActivity`就可以实现拖动返回的效果，因为是靠近边缘的侧滑返回，所以要用到手势处理，需要获取到当前`Activity`的根视图，手势的处理是要放在视图层处理的。  
 
 每个`Activity`都有一个`id`为`android.R.id.content`的根视图，`setContentView`所设置的`View`就是该根视图的子`View`，本项目就是根据这个特性来移动整个`Acivity`的。  
@@ -259,7 +276,7 @@ public boolean onTouchEvent(MotionEvent event) {
 }
 ```
 
-在这里面我对多点触控又花了体验，只对第一个触控点起效`mVelocityTracker`是检测手指的移动速度用的，当用户快速移动的时候，就算没有超过屏幕的一般我也应该要触发返回的事件。其它的看代码应该能懂，代（wo）码（bu）是（xiang）最（zai）好（xie）的（xia）老（qu）师（le）。  
+在这里面我对多点触控优化了体验，只对第一个触控点起效`mVelocityTracker`是检测手指的移动速度用的，当用户快速移动的时候，就算没有超过屏幕的一般我也应该要触发返回的事件。其它的看代码应该能懂，代（wo）码（bu）是（xiang）最（zai）好（xie）的（xia）老（qu）师（le）。  
 
 接下去就是把这两个`View`添加到`Activity`中并简单链接一下即可。  
 
