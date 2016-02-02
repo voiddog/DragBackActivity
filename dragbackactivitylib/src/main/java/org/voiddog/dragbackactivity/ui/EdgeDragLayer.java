@@ -28,10 +28,6 @@ public class EdgeDragLayer extends ViewGroup{
 
     //开始的触摸点
     Point mStartPoint = new Point(0, 0);
-    //上次的触摸点
-    Point mLastPoint = new Point(0, 0);
-    //上一次触摸时间
-    long mLastTouchTime = 0;
     //拖动状态
     DragState mDragState = DragState.DragCancel;
     //多动监听
@@ -131,9 +127,6 @@ public class EdgeDragLayer extends ViewGroup{
             }
         }
 
-        mLastPoint.set((int)event.getX(), (int)event.getY());
-        mLastTouchTime = System.currentTimeMillis();
-
         return mDragState == DragState.IsDragging;
     }
 
@@ -181,8 +174,6 @@ public class EdgeDragLayer extends ViewGroup{
                 break;
             }
         }
-        mLastPoint.set((int)event.getX(), (int)event.getY());
-        mLastTouchTime = System.currentTimeMillis();
 
         return mDragState != DragState.DragCancel;
     }
