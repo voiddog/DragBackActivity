@@ -4,6 +4,7 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Point;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.view.MotionEvent;
@@ -11,6 +12,10 @@ import android.view.VelocityTracker;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
+
+import com.facebook.drawee.drawable.ScalingUtils;
+import com.facebook.drawee.generic.GenericDraweeHierarchy;
+import com.facebook.drawee.generic.GenericDraweeHierarchyBuilder;
 
 /**
  * 左侧拖动的控制层
@@ -24,7 +29,7 @@ public class EdgeDragLayer extends ViewGroup{
     static final int MIN_SPEED = 300;
 
     int MIN_DIS = 8;
-    int EDGE_WIDTH = 20;
+    int EDGE_WIDTH = 50;
 
     //开始的触摸点
     Point mStartPoint = new Point(0, 0);
@@ -42,6 +47,10 @@ public class EdgeDragLayer extends ViewGroup{
     VelocityTracker mVelocityTracker = VelocityTracker.obtain();
     //指示器view
     DragBackHintView mHintView;
+    // 模糊背景 fresco view
+    DragBackBlurDrawee mBlurBg;
+    // 是否设置了模糊背景
+    boolean mHasSetBlurBg = false;
     int mCurrentOffsetX = 0;
 
     public EdgeDragLayer(Context context) {
@@ -77,6 +86,13 @@ public class EdgeDragLayer extends ViewGroup{
         mCancelAnim.setInterpolator(new DecelerateInterpolator());
         mCancelAnim.setDuration(ANIM_TIME);
 
+        GenericDraweeHierarchyBuilder builder = new GenericDraweeHierarchyBuilder(getResources());
+        GenericDraweeHierarchy hierarchy = builder.setFadeDuration(300)
+                .setPlaceholderImageScaleType(ScalingUtils.ScaleType.FIT_XY)
+                .build();
+        mBlurBg = new DragBackBlurDrawee(getContext(), hierarchy);
+        addView(mBlurBg, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+
         mHintView = new DragBackHintView(getContext());
         addView(mHintView, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         updateArrowUI(0);
@@ -96,6 +112,18 @@ public class EdgeDragLayer extends ViewGroup{
 
     public void setOnDragListener(DragListener listener){
         mDragListener = listener;
+    }
+
+    public boolean hasSetBlurBg(){
+        return mHasSetBlurBg;
+    }
+
+    public void setBlurBg(Drawable drawable){
+        if(drawable == null){
+            return;
+        }
+        mHasSetBlurBg = true;
+        mBlurBg.getHierarchy().setPlaceholderImage(drawable);
     }
 
     @Override
@@ -119,7 +147,8 @@ public class EdgeDragLayer extends ViewGroup{
             case MotionEvent.ACTION_MOVE: {
                 if(mDragState == DragState.DragStart){
                     int diffX = (int)(event.getX() - mStartPoint.x);
-                    if (diffX > MIN_DIS) {
+                    int diffY = (int)(event.getY() - mStartPoint.y);
+                    if (diffX > MIN_DIS && diffY < MIN_DIS) {
                         mDragState = DragState.IsDragging;
                     }
                 }
@@ -224,6 +253,7 @@ public class EdgeDragLayer extends ViewGroup{
     //更新返回指示器
     void updateArrowUI(int offsetX) {
         mHintView.onDrag(offsetX);
+        mBlurBg.onDrag(offsetX);
         if(offsetX > getWidth()/2){
             mHintView.showCircle();
         }
@@ -298,7 +328,9 @@ public class EdgeDragLayer extends ViewGroup{
 
     @Override
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        mHintView.layout(l, t, l + getMeasuredWidth(), t + getMeasuredHeight());
+        for(int i = getChildCount() - 1; i >= 0; --i){
+            getChildAt(i).layout(l, t, l + getMeasuredWidth(), t + getMeasuredHeight());
+        }
     }
 
     public interface DragListener {

@@ -67,6 +67,7 @@ public class DragBackHintView extends View implements ValueAnimator.AnimatorUpda
         mCircleDrawable = new GradientDrawable();
         mCircleDrawable.setShape(GradientDrawable.OVAL);
         mCircleDrawable.setColor(0xffaaaaaa);
+        mCircleDrawable.setAlpha(125);
 
         if(FontLoaderUtil.getInstance() == null){
             FontLoaderUtil.init(getContext());
@@ -88,6 +89,7 @@ public class DragBackHintView extends View implements ValueAnimator.AnimatorUpda
         mDarkBg = new GradientDrawable(GradientDrawable.Orientation.RIGHT_LEFT, colors);
         mDarkBg.setGradientType(GradientDrawable.LINEAR_GRADIENT);
         mDarkBg.setShape(GradientDrawable.RECTANGLE);
+
     }
 
     @Override
@@ -105,6 +107,7 @@ public class DragBackHintView extends View implements ValueAnimator.AnimatorUpda
         if (size > 0) {
             int left = (mCurrentX - size) >> 1;
             int top = (getHeight() - size) >> 1;
+
             mCircleDrawable.setBounds(left, top, left + size, top + size);
             mCircleDrawable.draw(canvas);
         }
