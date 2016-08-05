@@ -9,11 +9,22 @@
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
     tools:showIn="@layout/activity_main" tools:context=".MainActivity">
 
+    <ImageView
+        android:src="@drawable/rem"
+        android:scaleType="centerCrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
     <Button
         android:id="@+id/btn_start_drag_back"
         android:layout_centerInParent="true"
         android:text="Start Drag Back Activity"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
+
+    <org.voiddog.dragbackactivity.ui.BlurView
+        android:layout_centerInParent="true"
+        android:layout_width="100dp"
+        android:layout_height="100dp" />
 
 </RelativeLayout>

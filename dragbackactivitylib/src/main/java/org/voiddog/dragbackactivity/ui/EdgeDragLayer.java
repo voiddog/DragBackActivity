@@ -12,10 +12,7 @@ import android.view.VelocityTracker;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
-
-import com.facebook.drawee.drawable.ScalingUtils;
-import com.facebook.drawee.generic.GenericDraweeHierarchy;
-import com.facebook.drawee.generic.GenericDraweeHierarchyBuilder;
+import android.widget.ImageView;
 
 /**
  * 左侧拖动的控制层
@@ -48,7 +45,7 @@ public class EdgeDragLayer extends ViewGroup{
     //指示器view
     DragBackHintView mHintView;
     // 模糊背景 fresco view
-    DragBackBlurDrawee mBlurBg;
+    DragBackBlurImageView mBlurBg;
     // 是否设置了模糊背景
     boolean mHasSetBlurBg = false;
     int mCurrentOffsetX = 0;
@@ -86,11 +83,8 @@ public class EdgeDragLayer extends ViewGroup{
         mCancelAnim.setInterpolator(new DecelerateInterpolator());
         mCancelAnim.setDuration(ANIM_TIME);
 
-        GenericDraweeHierarchyBuilder builder = new GenericDraweeHierarchyBuilder(getResources());
-        GenericDraweeHierarchy hierarchy = builder.setFadeDuration(300)
-                .setPlaceholderImageScaleType(ScalingUtils.ScaleType.FIT_XY)
-                .build();
-        mBlurBg = new DragBackBlurDrawee(getContext(), hierarchy);
+        mBlurBg = new DragBackBlurImageView(getContext());
+        mBlurBg.setScaleType(ImageView.ScaleType.CENTER_CROP);
         addView(mBlurBg, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
         mHintView = new DragBackHintView(getContext());
@@ -123,7 +117,7 @@ public class EdgeDragLayer extends ViewGroup{
             return;
         }
         mHasSetBlurBg = true;
-        mBlurBg.getHierarchy().setPlaceholderImage(drawable);
+        mBlurBg.setImageDrawable(drawable);
     }
 
     @Override

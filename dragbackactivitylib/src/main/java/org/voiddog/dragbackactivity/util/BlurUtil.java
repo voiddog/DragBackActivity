@@ -1,16 +1,15 @@
 package org.voiddog.dragbackactivity.util;
 
 import android.annotation.TargetApi;
-import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
 import android.graphics.Rect;
-import android.graphics.drawable.BitmapDrawable;
-import android.os.AsyncTask;
 import android.os.Build;
 import android.renderscript.Allocation;
 import android.renderscript.Element;
@@ -20,58 +19,64 @@ import android.util.Log;
 import android.view.View;
 
 import java.io.ByteArrayOutputStream;
-import java.lang.ref.WeakReference;
-import java.util.Map;
-import java.util.WeakHashMap;
 
 /**
  * 模糊工具类
  * Created by qigengxin on 16/8/1.
  */
 public class BlurUtil {
-    private static final int MAX_BLUR_IMG_SIZE = 200;
-    private static Map<Activity, BitmapDrawable> S_BLUR_BGS = new WeakHashMap<>();
+    private static final int MAX_BLUR_IMG_SIZE = 100;
+    private static Bitmap S_DRAW_BITMAP = null;
 
-    public static void storeBlurBg(Activity activity){
-        if(activity == null){
-            return;
+    /**
+     * 生成对应View的磨砂图
+     * @param view
+     * @return
+     */
+    public static Bitmap getBlurWhiteBgBitmapFromView(View view) {
+        long startTime = System.currentTimeMillis();
+        Bitmap overlay = BlurUtil.getBlurImgFromView(view);
+        if(overlay == null){
+            overlay = Bitmap.createBitmap(
+                    view.getMeasuredWidth() / 10, view.getMeasuredHeight() / 10, Bitmap.Config.RGB_565);
         }
 
-        if(activity.getWindow().getDecorView().isShown()){
-            BlurAsyncTask task = new BlurAsyncTask(activity);
-            task.execute();
-        }
+        Canvas canvas = new Canvas(overlay);
+        Paint paint = new Paint();
+
+        // 白色透明层
+        paint.setColor(0x66FFFFFF);
+        paint.setStyle(Paint.Style.FILL);
+        canvas.drawRect(0, 0, overlay.getWidth(), overlay.getHeight(), paint);
+
+        Log.i("BlurView", "ImageUtil blur time: " + (System.currentTimeMillis() - startTime) + "ms");
+        return overlay;
     }
 
-    public static BitmapDrawable getBlurBg(Activity activity){
-        synchronized (BlurUtil.class){
-            BitmapDrawable res = S_BLUR_BGS.get(activity);
-            S_BLUR_BGS.put(activity, null);
-            return res;
+    public static Bitmap getBlurImgFromView(View view){
+        long startTime = System.currentTimeMillis();
+        Bitmap viewCache = getViewCacheWithMaxSize(view, MAX_BLUR_IMG_SIZE, MAX_BLUR_IMG_SIZE);
+        if(viewCache == null){
+            return null;
         }
-    }
 
-    public static int calculateSimpleSize(int srcWidth, int srcHeight,
-                                          int reqWidth, int reqHeight){
-        int inSampleSize = 1;
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        viewCache.compress(Bitmap.CompressFormat.JPEG, 10, bos);
 
-        if (srcHeight > reqHeight || srcWidth > reqWidth) {
-            float scaleW = (float) srcWidth / (float) reqWidth;
-            float scaleH = (float) srcHeight / (float) reqHeight;
+        Bitmap res;
+        byte[] outs = bos.toByteArray();
 
-            float sample = scaleW > scaleH ? scaleW : scaleH;
-            // 只能是2的次幂
-            if (sample < 3)
-                inSampleSize = (int) sample;
-            else if (sample < 6.5)
-                inSampleSize = 4;
-            else if (sample < 8)
-                inSampleSize = 8;
-            else
-                inSampleSize = (int) sample;
-
+        if(Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN){
+            BitmapFactory.Options options = new BitmapFactory.Options();
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            options.inMutable = true;
+            res = BitmapFactory.decodeByteArray(outs, 0, outs.length, options);
+            BlurUtil.blurWithRenderScript(view.getContext(), res, 12, true);
+        } else {
+            res = BlurUtil.getBlurImage(viewCache, 1, 8);
         }
-        return inSampleSize;
+        Log.i("BlurView", "获取blur所需时间: +" + (System.currentTimeMillis() - startTime) + "ms");
+        return res;
     }
 
     @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
@@ -327,96 +332,44 @@ public class BlurUtil {
         return (bitmap);
     }
 
-    private static Bitmap getViewCache(View rootView){
-        Bitmap res;
-
+    private static Bitmap getViewCacheWithMaxSize(View rootView, int maxWidth, int maxHeight) throws OutOfMemoryError{
         Rect rect = new Rect();
-        rootView.getWindowVisibleDisplayFrame(rect);
-        rootView.destroyDrawingCache();
-        rootView.setDrawingCacheEnabled(true);
-        rootView.buildDrawingCache(true);
-        res = rootView.getDrawingCache(true);
 
-        /**
-         * After rotation, the DecorView has no height and no width. Therefore
-         * .getDrawingCache() return null. That's why we  have to force measure and layout.
-         */
-        if (res == null) {
+        rootView.getWindowVisibleDisplayFrame(rect);
+        if(rootView.getWidth() == 0 || rootView.getHeight() == 0){
             rootView.measure(
                     View.MeasureSpec.makeMeasureSpec(rect.width(), View.MeasureSpec.EXACTLY),
                     View.MeasureSpec.makeMeasureSpec(rect.height(), View.MeasureSpec.EXACTLY)
             );
             rootView.layout(0, 0, rootView.getMeasuredWidth(),
                     rootView.getMeasuredHeight());
-            rootView.destroyDrawingCache();
-            rootView.setDrawingCacheEnabled(true);
-            rootView.buildDrawingCache(true);
-            res = rootView.getDrawingCache(true);
         }
-        return res;
-    }
-
-    private static class BlurAsyncTask extends AsyncTask<Void, Void, Void>{
-
-        private WeakReference<Activity> mBlurActivity;
-        private Bitmap mBackground;
-
-        public BlurAsyncTask(Activity activity){
-            mBlurActivity = new WeakReference<Activity>(activity);
-        }
-
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-
-
-            //retrieve background view, must be achieved on ui thread since
-            //only the original thread that created a view hierarchy can touch its views.
-            Activity activity = mBlurActivity.get();
-            if(activity == null){
-                return;
-            }
-
-            mBackground = getViewCache(activity.getWindow().getDecorView());
-        }
-
-        @Override
-        protected Void doInBackground(Void... params) {
-            long startTime = System.currentTimeMillis();
-            if(mBackground == null || mBlurActivity.get() == null){
-                return null;
-            }
-
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            mBackground.compress(Bitmap.CompressFormat.JPEG, 10, bos);
-
-            Bitmap res;
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inSampleSize = BlurUtil.calculateSimpleSize(mBackground.getWidth(), mBackground.getHeight(), MAX_BLUR_IMG_SIZE, MAX_BLUR_IMG_SIZE);
-            byte[] outs = bos.toByteArray();
-
-            if(Build.VERSION.SDK_INT > Build.VERSION_CODES.JELLY_BEAN){
-                options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-                res = BitmapFactory.decodeByteArray(outs, 0, outs.length, options);
-                BlurUtil.blurWithRenderScript(mBlurActivity.get(), res, 25, true);
-            }
-            else{
-                options.inPreferredConfig = Bitmap.Config.RGB_565;
-                res = BitmapFactory.decodeByteArray(outs, 0, outs.length, options);
-                Bitmap tmp = BlurUtil.getBlurImage(res, 2, 8);
-                res.recycle();
-                res = tmp;
-            }
-
-            mBackground.recycle();
-            mBackground = null;
-
-            synchronized (BlurUtil.class){
-                S_BLUR_BGS.put(mBlurActivity.get(), new BitmapDrawable(mBlurActivity.get().getResources(), res));
-            }
-            Log.i("TAG", "获取blur所需时间: +" + (System.currentTimeMillis() - startTime));
-
+        float w = rootView.getWidth(), h = rootView.getHeight();
+        if(w <= 0 || h <= 0){
             return null;
         }
+
+        float minScale = Math.min(maxWidth / w, maxHeight / h);
+        int bitmapWidth = (int) (w * minScale), bitmapHeight = (int) (h * minScale);
+        if(S_DRAW_BITMAP == null){
+            S_DRAW_BITMAP = Bitmap.createBitmap(
+                    bitmapWidth, bitmapHeight, Bitmap.Config.RGB_565);
+        }
+        else if(S_DRAW_BITMAP.getWidth() != bitmapWidth
+                || S_DRAW_BITMAP.getHeight() != bitmapHeight){
+            S_DRAW_BITMAP.recycle();
+            S_DRAW_BITMAP = Bitmap.createBitmap(
+                    bitmapWidth, bitmapHeight, Bitmap.Config.RGB_565);
+        }
+
+        Canvas canvas = new Canvas();
+        canvas.setBitmap(S_DRAW_BITMAP);
+        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR);
+
+        // 设置缩放
+        canvas.scale(minScale, minScale);
+        rootView.draw(canvas);
+
+        return S_DRAW_BITMAP;
     }
 }

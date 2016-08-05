@@ -1,6 +1,6 @@
 package org.voiddog.dragbackactivity;
 
-import android.app.Activity;
+import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -10,42 +10,49 @@ import android.widget.FrameLayout;
 import org.voiddog.dragbackactivity.ui.EdgeDragLayer;
 import org.voiddog.dragbackactivity.util.BlurUtil;
 
-import java.lang.ref.WeakReference;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * 拖动返回Activity
  * Created by qgx44 on 2016/2/2.
  */
 public class DragBackActivity extends AppCompatActivity{
-    private static List<WeakReference<Activity> > sActivities = new ArrayList<>();
-
     private FrameLayout mRootContainer;
     protected EdgeDragLayer mDragLayer;
+    private static Bitmap sBlurBg = null;
+
+    @Override
+    public void onAttachedToWindow() {
+        super.onAttachedToWindow();
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        sActivities.add(new WeakReference<Activity>(this));
         mRootContainer = (FrameLayout) findViewById(android.R.id.content);
         if(!isDisableDrag()) {
             setupDragView();
+            if(sBlurBg != null){
+                mDragLayer.setBlurBg(new BitmapDrawable(getResources(), sBlurBg));
+                sBlurBg = null;
+            }
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if(!isFinishing()){
+            sBlurBg = BlurUtil.getBlurImgFromView(getWindow().getDecorView());
         }
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        if(!isFinishing()){
-            BlurUtil.storeBlurBg(this);
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        sActivities.remove(sActivities.size() - 1);
     }
 
     /**
@@ -91,9 +98,6 @@ public class DragBackActivity extends AppCompatActivity{
     void dragEvent(int dis){
         if(dis < 0){
             dis = 0;
-        }
-        if(!mDragLayer.hasSetBlurBg() && sActivities.size() > 1){
-            mDragLayer.setBlurBg(BlurUtil.getBlurBg(sActivities.get(sActivities.size() - 2).get()));
         }
         mRootContainer.setX(dis);
     }
